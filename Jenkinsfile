@@ -34,9 +34,9 @@ pipeline {
         stage('4. Construction des images Docker') {
             steps {
                 script {
-                    // On utilise le chemin complet pour être sûr que Jenkins trouve docker
-                    bat '"C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe" build -t bi-boutique-backend:latest ./backend'
-                    bat '"C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe" build -t bi-boutique-frontend:latest ./frontend'
+                    // Utilisation du chemin exact trouvé avec la commande 'where docker'
+                    bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" build -t bi-boutique-backend:latest ./backend'
+                    bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" build -t bi-boutique-frontend:latest ./frontend'
                 }
             }
         }
