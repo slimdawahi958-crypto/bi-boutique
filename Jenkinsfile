@@ -34,10 +34,9 @@ pipeline {
         stage('4. Construction des images Docker') {
             steps {
                 script {
-                    // Construit l'image Docker du backend
-                    docker.build("bi-boutique-backend:latest", "./backend")
-                    // Construit l'image Docker du frontend
-                    docker.build("bi-boutique-frontend:latest", "./frontend")
+                    // On utilise 'bat' pour exécuter les commandes Docker directement sous Windows
+                    bat 'docker build -t bi-boutique-backend:latest ./backend'
+                    bat 'docker build -t bi-boutique-frontend:latest ./frontend'
                 }
             }
         }
