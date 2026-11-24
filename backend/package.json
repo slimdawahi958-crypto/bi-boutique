@@ -2,9 +2,9 @@
   "name": "bi-boutique-backend",
   "version": "1.0.0",
   "private": true,
-  "main": "server.js",
+  "main": "server.cjs",
   "scripts": {
-    "start": "node server.js",
+    "start": "node server.cjs",
     "test": "echo \"Error: no test specified\" && exit 0"
   },
   "dependencies": {
