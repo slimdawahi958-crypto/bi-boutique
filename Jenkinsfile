@@ -34,9 +34,9 @@ pipeline {
         stage('4. Construction des images Docker') {
             steps {
                 script {
-                    // On utilise 'bat' pour exécuter les commandes Docker directement sous Windows
-                    bat 'docker build -t bi-boutique-backend:latest ./backend'
-                    bat 'docker build -t bi-boutique-frontend:latest ./frontend'
+                    // On utilise le chemin complet pour être sûr que Jenkins trouve docker
+                    bat '"C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe" build -t bi-boutique-backend:latest ./backend'
+                    bat '"C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe" build -t bi-boutique-frontend:latest ./frontend'
                 }
             }
         }
