@@ -3,7 +3,7 @@ pipeline {
 
     tools {
         // On utilise NodeJS, il faudra le configurer dans Jenkins sous le nom 'Node18'
-        nodejs 'Node18' 
+        nodejs 'Node20' 
     }
 
     stages {
