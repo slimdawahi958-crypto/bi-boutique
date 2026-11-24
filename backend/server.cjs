@@ -2,16 +2,29 @@ const express = require("express");
 const cors = require("cors");
 const { Pool } = require("pg");
 
+// --- MODIFICATION 1 : Utilisation des variables d'environnement pour la sécurité ---
 const pool = new Pool({
-  user: "postgres",
-  host: "db",
-  database: "bi_boutique",
-  password: "12919751",
+  user: process.env.DB_USER || "postgres",
+  host: process.env.DB_HOST || "localhost",
+  database: process.env.DB_NAME || "bi_boutique",
+  password: process.env.DB_PASSWORD || "postgres", // Plus de mot de passe en clair !
   port: 5432,
 });
+
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// --- MODIFICATION 2 : Ajout de la route de santé (Health Check) ---
+app.get("/api/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ status: "UP" });
+  } catch (error) {
+    res.status(500).json({ status: "DOWN", error: error.message });
+  }
+});
+
 const q = (sql, p) => pool.query(sql, p).then((r) => r.rows);
 
 // ---- PRODUITS ----
@@ -102,4 +115,6 @@ app.get("/api/stats", async (req, res) => {
   res.json({ ca: kpi.ca, nb: kpi.nb, top: top ? top.nom : "Aucune vente" });
 });
 
-app.listen(5000, () => console.log("API sur http://localhost:5000"));
+// --- MODIFICATION 3 : Port dynamique ---
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`API sur http://localhost:${PORT}`));
