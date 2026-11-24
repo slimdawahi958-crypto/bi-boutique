@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: bi_boutique
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12919751 # <--- METS TON MOT DE PASSE ICI
+    ports:
+      - "5432:5432"
+
+  backend:
+    image: bi-boutique-backend:latest
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+
+  frontend:
+    image: bi-boutique-frontend:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
