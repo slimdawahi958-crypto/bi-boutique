@@ -7,22 +7,27 @@ pipeline {
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
 
+        stage('Vérifier Docker') {
+            steps {
+                bat '''
+                "C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" --version
+                "C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" compose version
+                '''
+            }
+        }
+
         stage('Déploiement Staging') {
             steps {
-
-                // Arrêter les anciens conteneurs
-                bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" compose down'
-
-                // Construire et démarrer les conteneurs
-                bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" compose up -d'
-
+                bat '''
+                "C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" compose down
+                "C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" compose up -d
+                '''
                 echo 'Application déployée sur http://localhost'
             }
         }
