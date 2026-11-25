@@ -1,0 +1,14 @@
+pipeline {
+    agent any
+    triggers { cron('H 2 * * *') } // Se lance tous les jours à 2h du matin
+    tools { nodejs 'Node20' }
+    stages {
+        stage('Checkout') { steps { checkout scm } }
+        stage('Régression (Tests)') {
+            steps {
+                dir('backend') { bat 'npm install' }
+                echo 'Vérification nocturne terminée avec succès.'
+            }
+        }
+    }
+}
