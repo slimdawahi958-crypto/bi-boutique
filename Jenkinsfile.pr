@@ -1,16 +1,39 @@
+
 pipeline {
     agent any
-    tools { nodejs 'Node20' }
+
+    tools {
+        nodejs 'Node20'
+    }
+
     stages {
-        stage('Checkout') { steps { checkout scm } }
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Build Backend') {
-            steps { dir('backend') { bat 'npm install' } }
+            steps {
+                dir('backend') {
+                    bat 'npm install'
+                }
+            }
         }
+
         stage('Build Frontend') {
-            steps { dir('frontend') { bat 'npm install' && bat 'npm run build' } }
+            steps {
+                dir('frontend') {
+                    bat 'npm install'
+                    bat 'npm run build'
+                }
+            }
         }
+
         stage('Test') {
-            steps { echo 'Tous les tests passent, PR validée !' }
+            steps {
+                echo 'Tous les tests passent, PR validée !'
+            }
         }
     }
 }
