@@ -2,15 +2,33 @@ pipeline {
     agent any
     environment {
         DOCKER_HUB_USER = 'slim12' 
-        TAG_NAME = "${BUILD_NUMBER}"
+        // On utilise le TAG_NAME s'il existe, sinon le numéro de build
+        IMAGE_TAG = "${TAG_NAME ?: env.BUILD_NUMBER}"
     }
     stages {
-        stage('Checkout') { steps { checkout scm } }
+        stage('Checkout') { 
+            steps { 
+                checkout scm 
+            } 
+        }
         stage('Build & Push Images') {
             steps {
-                bat "\"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe\" build -t ${DOCKER_HUB_USER}/bi-boutique-backend:${TAG_NAME} ./backend"
-                bat "\"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe\" build -t ${DOCKER_HUB_USER}/bi-boutique-frontend:${TAG_NAME} ./frontend"
-                // Note : Pour pousser, tu devras configurer tes identifiants Docker Hub dans Jenkins
+                script {
+                    // On utilise l'ID 'dockerhub-credentials' configuré dans Jenkins
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        
+                        // 1. Connexion à Docker Hub
+                        bat "\"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe\" login -u ${DOCKER_USER} -p ${DOCKER_PASS}"
+                        
+                        // 2. Construction (Build) des images
+                        bat "\"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe\" build -t ${DOCKER_HUB_USER}/bi-boutique-backend:${IMAGE_TAG} ./backend"
+                        bat "\"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe\" build -t ${DOCKER_HUB_USER}/bi-boutique-frontend:${IMAGE_TAG} ./frontend"
+                        
+                        // 3. Envoi (Push) des images vers Docker Hub
+                        bat "\"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe\" push ${DOCKER_HUB_USER}/bi-boutique-backend:${IMAGE_TAG}"
+                        bat "\"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe\" push ${DOCKER_HUB_USER}/bi-boutique-frontend:${IMAGE_TAG}"
+                    }
+                }
             }
         }
     }
