@@ -1,11 +1,28 @@
+
 pipeline {
     agent any
+
+    options {
+        skipDefaultCheckout(true)
+    }
+
     stages {
-        stage('Checkout') { steps { checkout scm } }
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Déploiement Staging') {
             steps {
-                bat 'docker-compose down'
-                bat 'docker-compose up -d'
+
+                // Arrêter les anciens conteneurs
+                bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" compose down'
+
+                // Construire et démarrer les conteneurs
+                bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" compose up -d'
+
                 echo 'Application déployée sur http://localhost'
             }
         }
