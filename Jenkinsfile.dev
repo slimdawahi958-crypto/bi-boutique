@@ -1,17 +1,36 @@
+
 pipeline {
     agent any
-    tools { nodejs 'Node20' }
+
+    tools {
+        nodejs 'Node20'
+    }
+
     stages {
-        stage('Checkout') { steps { checkout scm } }
-        stage('Backend & Frontend') {
+
+        stage('Checkout') {
             steps {
-                dir('backend') { bat 'npm install' }
-                dir('frontend') { bat 'npm install' && bat 'npm run build' }
+                checkout scm
             }
         }
+
+        stage('Backend & Frontend') {
+            steps {
+                dir('backend') {
+                    bat 'npm install'
+                }
+
+                dir('frontend') {
+                    bat 'npm install'
+                    bat 'npm run build'
+                }
+            }
+        }
+
         stage('Build Docker Images') {
             steps {
                 bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" build -t bi-boutique-backend:dev ./backend'
+
                 bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" build -t bi-boutique-frontend:dev ./frontend'
             }
         }
