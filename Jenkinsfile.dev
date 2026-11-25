@@ -1,38 +1,72 @@
-
 pipeline {
     agent any
-
-    tools {
-        nodejs 'Node20'
+    tools { nodejs 'Node20' }
+    options { disableConcurrentBuilds(); timeout(time: 30, unit: 'MINUTES') }
+    environment {
+        DOCKER  = 'C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe'
+        COMPOSE = 'C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker-compose.exe'
+        BACKEND_IMAGE  = 'bi-boutique-backend:dev-node20'
+        FRONTEND_IMAGE = 'bi-boutique-frontend:dev-node20'
+        API_PORT = '15002'
+        WEB_PORT = '18082'
+        COMPOSE_PROJECT_NAME = 'bi-ci-dev'
     }
-
     stages {
-
         stage('Checkout') {
+            steps { checkout scm }
+        }
+        stage('Setup') {
             steps {
-                checkout scm
+                bat 'if not exist reports mkdir reports'
+                bat 'node -v && npm -v'
+                bat '"%DOCKER%" --version'
+                dir('backend')  { bat 'npm install'; bat 'node --check server.cjs' }
+                dir('frontend') { bat 'npm install'; bat 'npm run build' }
             }
         }
-
-        stage('Backend & Frontend') {
-            steps {
-                dir('backend') {
-                    bat 'npm install'
+        stage('Build') {
+            // Parallélisation : une cellule par version de Node (20 et 22)
+            matrix {
+                axes {
+                    axis { name 'NODE_VERSION'; values '20', '22' }
                 }
-
-                dir('frontend') {
-                    bat 'npm install'
-                    bat 'npm run build'
+                stages {
+                    stage('Build images') {
+                        steps {
+                            bat '"%DOCKER%" build --build-arg NODE_VERSION=%NODE_VERSION% -t bi-boutique-backend:dev-node%NODE_VERSION% ./backend'
+                            bat '"%DOCKER%" build --build-arg NODE_VERSION=%NODE_VERSION% -t bi-boutique-frontend:dev-node%NODE_VERSION% ./frontend'
+                        }
+                    }
                 }
             }
         }
-
-        stage('Build Docker Images') {
+        stage('Run (Docker)') {
             steps {
-                bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" build -t bi-boutique-backend:dev ./backend'
-
-                bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" build -t bi-boutique-frontend:dev ./frontend'
+                bat '"%COMPOSE%" -f docker-compose.ci.yml up -d'
             }
         }
+        stage('Smoke Test') {
+            steps {
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    bat 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\smoke.ps1 -Api http://localhost:%API_PORT% -Web http://localhost:%WEB_PORT% -Out reports\\smoke-dev.txt'
+                }
+            }
+        }
+        stage('Archive Artifacts') {
+            steps {
+                bat '"%COMPOSE%" -f docker-compose.ci.yml logs --no-color > reports\\compose-logs.txt'
+                writeFile file: 'reports/pipeline-report.txt',
+                          text: "Pipeline : ${env.JOB_NAME}\nBuild : #${env.BUILD_NUMBER}\nBranche : ${env.BRANCH_NAME ?: 'n/a'}\nRuntimes testés : Node 20 et Node 22\nStatut : ${currentBuild.currentResult}\nURL : ${env.BUILD_URL}\n"
+                archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
+            }
+        }
+        stage('Cleanup') {
+            steps {
+                bat '"%COMPOSE%" -f docker-compose.ci.yml down -v'
+            }
+        }
+    }
+    post {
+        failure { bat returnStatus: true, script: '"%COMPOSE%" -f docker-compose.ci.yml down -v' }
     }
 }
