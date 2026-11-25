@@ -1,39 +1,64 @@
-
 pipeline {
     agent any
-
-    tools {
-        nodejs 'Node20'
+    tools { nodejs 'Node20' }
+    options { disableConcurrentBuilds(); timeout(time: 20, unit: 'MINUTES') }
+    environment {
+        DOCKER  = 'C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe'
+        COMPOSE = 'C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker-compose.exe'
+        BACKEND_IMAGE  = 'bi-boutique-backend:pr'
+        FRONTEND_IMAGE = 'bi-boutique-frontend:pr'
+        API_PORT = '15001'
+        WEB_PORT = '18081'
+        COMPOSE_PROJECT_NAME = 'bi-ci-pr'
     }
-
     stages {
         stage('Checkout') {
+            steps { checkout scm }
+        }
+        stage('Setup') {
             steps {
-                checkout scm
+                bat 'if not exist reports mkdir reports'
+                bat 'node -v && npm -v'
+                bat '"%DOCKER%" --version'
+                dir('backend')  { bat 'npm install'; bat 'node --check server.cjs' }
+                dir('frontend') { bat 'npm install' }
             }
         }
-
-        stage('Build Backend') {
+        stage('Build') {
             steps {
-                dir('backend') {
-                    bat 'npm install'
+                dir('frontend') { bat 'npm run build' }
+                bat '"%DOCKER%" build -t %BACKEND_IMAGE% ./backend'
+                bat '"%DOCKER%" build -t %FRONTEND_IMAGE% ./frontend'
+            }
+        }
+        stage('Run (Docker)') {
+            steps {
+                bat '"%COMPOSE%" -f docker-compose.ci.yml up -d'
+            }
+        }
+        stage('Smoke Test') {
+            steps {
+                // catchError : le stage devient rouge mais Archive et Cleanup s'exécutent quand même
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    bat 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\smoke.ps1 -Api http://localhost:%API_PORT% -Web http://localhost:%WEB_PORT% -Out reports\\smoke-pr.txt'
                 }
             }
         }
-
-        stage('Build Frontend') {
+        stage('Archive Artifacts') {
             steps {
-                dir('frontend') {
-                    bat 'npm install'
-                    bat 'npm run build'
-                }
+                bat '"%COMPOSE%" -f docker-compose.ci.yml logs --no-color > reports\\compose-logs.txt'
+                writeFile file: 'reports/pipeline-report.txt',
+                          text: "Pipeline : ${env.JOB_NAME}\nBuild : #${env.BUILD_NUMBER}\nBranche : ${env.BRANCH_NAME ?: 'n/a'}\nStatut : ${currentBuild.currentResult}\nURL : ${env.BUILD_URL}\n"
+                archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
             }
         }
-
-        stage('Test') {
+        stage('Cleanup') {
             steps {
-                echo 'Tous les tests passent, PR validée !'
+                bat '"%COMPOSE%" -f docker-compose.ci.yml down -v'
             }
         }
+    }
+    post {
+        failure { bat returnStatus: true, script: '"%COMPOSE%" -f docker-compose.ci.yml down -v' }
     }
 }

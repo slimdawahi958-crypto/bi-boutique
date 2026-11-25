@@ -1,18 +1,53 @@
 pipeline {
     agent any
+    options { disableConcurrentBuilds(); timeout(time: 20, unit: 'MINUTES') }
+    environment {
+        DOCKER  = 'C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe'
+        COMPOSE = 'C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker-compose.exe'
+        STAGING_API = 'http://localhost:5000'
+        STAGING_WEB = 'http://localhost:80'
+    }
     stages {
-        stage('Checkout') { 
-            steps { 
-                checkout scm 
-            } 
+        stage('Checkout') {
+            steps { checkout scm }
         }
-        stage('Déploiement Staging') {
+        stage('Setup') {
             steps {
-                // On utilise le chemin complet vers docker-compose.exe
-                // avec des doubles antislashs (\\) pour l'échappement Groovy
-                bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker-compose.exe" down'
-                bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker-compose.exe" up -d'
-                echo 'Application déployée sur http://localhost'
+                bat 'if not exist reports mkdir reports'
+                bat '"%DOCKER%" --version'
+                bat '"%COMPOSE%" config -q'
+            }
+        }
+        stage('Build') {
+            steps {
+                bat '"%COMPOSE%" build'
+            }
+        }
+        stage('Run (Docker)') {
+            steps {
+                bat '"%COMPOSE%" down'
+                bat '"%COMPOSE%" up -d'
+            }
+        }
+        stage('Smoke Test') {
+            steps {
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    bat 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\smoke.ps1 -Api %STAGING_API% -Web %STAGING_WEB% -Out reports\\smoke-deploy.txt'
+                }
+            }
+        }
+        stage('Archive Artifacts') {
+            steps {
+                bat '"%COMPOSE%" logs --no-color > reports\\staging-logs.txt'
+                writeFile file: 'reports/pipeline-report.txt',
+                          text: "Pipeline : ${env.JOB_NAME}\nBuild : #${env.BUILD_NUMBER}\nCible : staging ${env.STAGING_WEB}\nStatut : ${currentBuild.currentResult}\nURL : ${env.BUILD_URL}\n"
+                archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
+            }
+        }
+        stage('Cleanup') {
+            steps {
+                // le staging reste en ligne : on supprime seulement les images orphelines
+                bat '"%DOCKER%" image prune -f'
             }
         }
     }
