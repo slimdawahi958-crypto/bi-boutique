@@ -1,11 +1,17 @@
 pipeline {
     agent any
     stages {
-        stage('Checkout') { steps { checkout scm } }
+        stage('Checkout') { 
+            steps { 
+                checkout scm 
+            } 
+        }
         stage('Déploiement Staging') {
             steps {
-                bat 'docker-compose down'
-                bat 'docker-compose up -d'
+                // On utilise le chemin complet vers docker-compose.exe
+                // avec des doubles antislashs (\\) pour l'échappement Groovy
+                bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker-compose.exe" down'
+                bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker-compose.exe" up -d'
                 echo 'Application déployée sur http://localhost'
             }
         }

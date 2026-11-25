@@ -2,6 +2,7 @@ pipeline {
     agent any
     environment {
         DOCKER_HUB_USER = 'slim12' 
+        TAG_NAME = "${BUILD_NUMBER}"
     }
     stages {
         stage('Checkout') { steps { checkout scm } }
