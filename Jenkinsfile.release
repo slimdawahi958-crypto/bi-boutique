@@ -1,0 +1,16 @@
+pipeline {
+    agent any
+    environment {
+        DOCKER_HUB_USER = 'slim12' 
+    }
+    stages {
+        stage('Checkout') { steps { checkout scm } }
+        stage('Build & Push Images') {
+            steps {
+                bat "\"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe\" build -t ${DOCKER_HUB_USER}/bi-boutique-backend:${TAG_NAME} ./backend"
+                bat "\"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe\" build -t ${DOCKER_HUB_USER}/bi-boutique-frontend:${TAG_NAME} ./frontend"
+                // Note : Pour pousser, tu devras configurer tes identifiants Docker Hub dans Jenkins
+            }
+        }
+    }
+}
