@@ -21,6 +21,13 @@ pipeline {
                 '''
             }
         }
+        stage('Informations Jenkins') {
+            steps {
+                bat 'whoami'
+                bat 'echo USERPROFILE=%USERPROFILE%'
+                bat 'echo DOCKER_CONFIG=%DOCKER_CONFIG%'
+            }
+        }
 
         stage('Déploiement Staging') {
             steps {
