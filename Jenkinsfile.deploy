@@ -13,29 +13,38 @@ pipeline {
             }
         }
 
-        stage('Vérifier Docker') {
-            steps {
-                bat '''
-                "C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" --version
-                "C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" compose version
-                '''
-            }
-        }
         stage('Informations Jenkins') {
             steps {
                 bat 'whoami'
                 bat 'echo USERPROFILE=%USERPROFILE%'
                 bat 'echo DOCKER_CONFIG=%DOCKER_CONFIG%'
+
+                bat '''
+                echo ===== RECHERCHE DU PLUGIN COMPOSE =====
+
+                if exist "%USERPROFILE%\\.docker\\cli-plugins\\docker-compose.exe" (
+                    echo Plugin trouve dans USERPROFILE
+                    dir "%USERPROFILE%\\.docker\\cli-plugins\\docker-compose.exe"
+                ) else (
+                    echo Plugin absent dans USERPROFILE
+                )
+
+                if exist "C:\\ProgramData\\Docker\\cli-plugins\\docker-compose.exe" (
+                    echo Plugin trouve dans ProgramData
+                    dir "C:\\ProgramData\\Docker\\cli-plugins\\docker-compose.exe"
+                ) else (
+                    echo Plugin absent dans ProgramData
+                )
+
+                where docker
+                where docker-compose
+                '''
             }
         }
 
-        stage('Déploiement Staging') {
+        stage('Vérifier Docker') {
             steps {
-                bat '''
-                "C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" compose down
-                "C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" compose up -d
-                '''
-                echo 'Application déployée sur http://localhost'
+                bat '"C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe" --version'
             }
         }
     }
