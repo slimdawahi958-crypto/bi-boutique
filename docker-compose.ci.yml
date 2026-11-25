@@ -1,0 +1,27 @@
+# Pile de TEST pour les pipelines PR, DEV, RELEASE et NIGHTLY.
+# Les images et les ports viennent des variables d'environnement de chaque Jenkinsfile.
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bi_boutique
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+  backend:
+    image: ${BACKEND_IMAGE:-bi-boutique-backend:local}
+    environment:
+      DB_HOST: db
+      DB_USER: postgres
+      DB_NAME: bi_boutique
+      DB_PASSWORD: postgres
+    depends_on:
+      - db
+    ports:
+      - "${API_PORT:-15000}:5000"
+  frontend:
+    image: ${FRONTEND_IMAGE:-bi-boutique-frontend:local}
+    depends_on:
+      - backend
+    ports:
+      - "${WEB_PORT:-18080}:80"

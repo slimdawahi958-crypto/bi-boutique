@@ -1,11 +1,16 @@
 pipeline {
     agent any
-    tools { nodejs 'Node20' }
-    options { disableConcurrentBuilds(); timeout(time: 30, unit: 'MINUTES') }
+    tools {
+        nodejs 'Node20'
+    }
+    options {
+        disableConcurrentBuilds()
+        timeout(time: 30, unit: 'MINUTES')
+    }
     environment {
-        DOCKER  = 'C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe'
+        DOCKER = 'C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe'
         COMPOSE = 'C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker-compose.exe'
-        BACKEND_IMAGE  = 'bi-boutique-backend:dev-node20'
+        BACKEND_IMAGE = 'bi-boutique-backend:dev-node20'
         FRONTEND_IMAGE = 'bi-boutique-frontend:dev-node20'
         API_PORT = '15002'
         WEB_PORT = '18082'
@@ -13,22 +18,31 @@ pipeline {
     }
     stages {
         stage('Checkout') {
-            steps { checkout scm }
+            steps {
+                checkout scm
+            }
         }
         stage('Setup') {
             steps {
                 bat 'if not exist reports mkdir reports'
                 bat 'node -v && npm -v'
                 bat '"%DOCKER%" --version'
-                dir('backend')  { bat 'npm install'; bat 'node --check server.cjs' }
-                dir('frontend') { bat 'npm install'; bat 'npm run build' }
+                dir('backend') {
+                    bat 'npm install'
+                    bat 'node --check server.cjs'
+                }
+                dir('frontend') {
+                    bat 'npm install'
+                }
             }
         }
         stage('Build') {
-            // Parallélisation : une cellule par version de Node (20 et 22)
             matrix {
                 axes {
-                    axis { name 'NODE_VERSION'; values '20', '22' }
+                    axis {
+                        name 'NODE_VERSION'
+                        values '20', '22'
+                    }
                 }
                 stages {
                     stage('Build images') {
@@ -55,8 +69,7 @@ pipeline {
         stage('Archive Artifacts') {
             steps {
                 bat '"%COMPOSE%" -f docker-compose.ci.yml logs --no-color > reports\\compose-logs.txt'
-                writeFile file: 'reports/pipeline-report.txt',
-                          text: "Pipeline : ${env.JOB_NAME}\nBuild : #${env.BUILD_NUMBER}\nBranche : ${env.BRANCH_NAME ?: 'n/a'}\nRuntimes testés : Node 20 et Node 22\nStatut : ${currentBuild.currentResult}\nURL : ${env.BUILD_URL}\n"
+                writeFile file: 'reports/pipeline-report.txt', text: "Pipeline : ${env.JOB_NAME}\nBuild : #${env.BUILD_NUMBER}\nBranche : ${env.BRANCH_NAME ?: 'n/a'}\nType : Build complet, matrix Node 20 et 22\nStatut : ${currentBuild.currentResult}\nURL : ${env.BUILD_URL}\n"
                 archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
             }
         }
@@ -67,6 +80,8 @@ pipeline {
         }
     }
     post {
-        failure { bat returnStatus: true, script: '"%COMPOSE%" -f docker-compose.ci.yml down -v' }
+        failure {
+            bat returnStatus: true, script: '"%COMPOSE%" -f docker-compose.ci.yml down -v'
+        }
     }
 }
