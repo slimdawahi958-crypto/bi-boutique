@@ -63,7 +63,7 @@ pipeline {
         stage('Archive Artifacts') {
             steps {
                 bat '"%COMPOSE%" -f docker-compose.ci.yml logs --no-color > reports\\compose-logs.txt'
-                writeFile file: 'reports/pipeline-report.txt', text: "Pipeline : ${env.JOB_NAME}\nBuild : #${env.BUILD_NUMBER}\nBranche : ${env.BRANCH_NAME ?: 'n/a'}\nType : Regression nocturne sans cache\nStatut : ${currentBuild.currentResult}\nURL : ${env.BUILD_URL}\n"
+                writeFile file: 'reports/pipeline-report.txt', text: "Pipeline : ${env.JOB_NAME}\nBuild : #${env.BUILD_NUMBER}\nBranche : ${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'n/a'}\nType : Regression nocturne sans cache\nStatut : ${currentBuild.currentResult}\nURL : ${env.BUILD_URL}\n"
                 archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
             }
         }

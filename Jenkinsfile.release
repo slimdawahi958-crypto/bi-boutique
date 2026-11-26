@@ -83,7 +83,7 @@ pipeline {
                 bat '"%COMPOSE%" -f docker-compose.ci.yml logs --no-color > reports\\compose-logs.txt'
                 bat '"%DOCKER%" images --digests %HUB_USER%/bi-boutique-backend > reports\\images-backend.txt'
                 bat '"%DOCKER%" images --digests %HUB_USER%/bi-boutique-frontend > reports\\images-frontend.txt'
-                writeFile file: 'reports/pipeline-report.txt', text: "Pipeline : ${env.JOB_NAME}\nBuild : #${env.BUILD_NUMBER}\nBranche : ${env.BRANCH_NAME ?: 'n/a'}\nType : Build versionne ${env.IMAGE_TAG}\nStatut : ${currentBuild.currentResult}\nURL : ${env.BUILD_URL}\n"
+                writeFile file: 'reports/pipeline-report.txt', text: "Pipeline : ${env.JOB_NAME}\nBuild : #${env.BUILD_NUMBER}\nBranche : ${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'n/a'}\nType : Build versionne ${env.IMAGE_TAG}\nStatut : ${currentBuild.currentResult}\nURL : ${env.BUILD_URL}\n"
                 archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
             }
         }
