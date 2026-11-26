@@ -1,0 +1,81 @@
+pipeline {
+    agent any
+    tools {
+        nodejs 'Node20'
+    }
+    triggers {
+        cron('H 2 * * *')
+    }
+    options {
+        disableConcurrentBuilds()
+        timeout(time: 30, unit: 'MINUTES')
+    }
+    environment {
+        DOCKER = 'C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe'
+        COMPOSE = 'C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker-compose.exe'
+        BACKEND_IMAGE = 'bi-boutique-backend:nightly'
+        FRONTEND_IMAGE = 'bi-boutique-frontend:nightly'
+        API_PORT = '15004'
+        WEB_PORT = '18084'
+        COMPOSE_PROJECT_NAME = 'bi-ci-nightly'
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('Setup') {
+            steps {
+                bat 'if not exist reports mkdir reports'
+                bat 'node -v && npm -v'
+                bat '"%DOCKER%" --version'
+                dir('backend') {
+                    bat 'npm install'
+                    bat 'node --check server.cjs'
+                }
+                dir('frontend') {
+                    bat 'npm install'
+                }
+            }
+        }
+        stage('Build (sans cache)') {
+            steps {
+                dir('frontend') {
+                    bat 'npm run build'
+                }
+                bat '"%DOCKER%" build --no-cache -t %BACKEND_IMAGE% ./backend'
+                bat '"%DOCKER%" build --no-cache -t %FRONTEND_IMAGE% ./frontend'
+            }
+        }
+        stage('Run (Docker)') {
+            steps {
+                bat '"%COMPOSE%" -f docker-compose.ci.yml up -d'
+            }
+        }
+        stage('Smoke Test') {
+            steps {
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    bat 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\smoke.ps1 -Api http://localhost:%API_PORT% -Web http://localhost:%WEB_PORT% -Out reports\\smoke-nightly.txt'
+                }
+            }
+        }
+        stage('Archive Artifacts') {
+            steps {
+                bat '"%COMPOSE%" -f docker-compose.ci.yml logs --no-color > reports\\compose-logs.txt'
+                writeFile file: 'reports/pipeline-report.txt', text: "Pipeline : ${env.JOB_NAME}\nBuild : #${env.BUILD_NUMBER}\nBranche : ${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'n/a'}\nType : Regression nocturne sans cache\nStatut : ${currentBuild.currentResult}\nURL : ${env.BUILD_URL}\n"
+                archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
+            }
+        }
+        stage('Cleanup') {
+            steps {
+                bat '"%COMPOSE%" -f docker-compose.ci.yml down -v'
+            }
+        }
+    }
+    post {
+        failure {
+            bat returnStatus: true, script: '"%COMPOSE%" -f docker-compose.ci.yml down -v'
+        }
+    }
+}
