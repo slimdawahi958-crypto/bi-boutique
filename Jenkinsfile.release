@@ -1,26 +1,101 @@
 pipeline {
     agent any
+    tools {
+        nodejs 'Node20'
+    }
+    options {
+        disableConcurrentBuilds()
+        timeout(time: 30, unit: 'MINUTES')
+    }
     environment {
         DOCKER = 'C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe'
+        COMPOSE = 'C:\\Users\\slimd\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker-compose.exe'
         HUB_USER = 'slim12'
-        IMAGE_TAG = "${env.TAG_NAME ?: env.BUILD_NUMBER}"
+        IMAGE_TAG = "${env.TAG_NAME ?: 'build-' + env.BUILD_NUMBER}"
+        BACKEND_IMAGE = "${HUB_USER}/bi-boutique-backend:${IMAGE_TAG}"
+        FRONTEND_IMAGE = "${HUB_USER}/bi-boutique-frontend:${IMAGE_TAG}"
+        API_PORT = '15003'
+        WEB_PORT = '18083'
+        COMPOSE_PROJECT_NAME = 'bi-ci-release'
     }
     stages {
         stage('Checkout') {
-            steps { checkout scm }
-        }
-        stage('Build & Push Images') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
-                                                  usernameVariable: 'DOCKER_USER',
-                                                  passwordVariable: 'DOCKER_PASS')]) {
-                    bat 'echo %DOCKER_PASS%| "%DOCKER%" login -u %DOCKER_USER% --password-stdin'
-                    bat "\"%DOCKER%\" build -t %HUB_USER%/bi-boutique-backend:%IMAGE_TAG% ./backend"
-                    bat "\"%DOCKER%\" build -t %HUB_USER%/bi-boutique-frontend:%IMAGE_TAG% ./frontend"
-                    bat "\"%DOCKER%\" push %HUB_USER%/bi-boutique-backend:%IMAGE_TAG%"
-                    bat "\"%DOCKER%\" push %HUB_USER%/bi-boutique-frontend:%IMAGE_TAG%"
+                checkout scm
+            }
+        }
+        stage('Setup') {
+            steps {
+                script {
+                    // Un tag doit respecter le format vX.Y.Z (sinon : lancement manuel, tag build-N)
+                    if (env.TAG_NAME && !(env.TAG_NAME ==~ /^v\d+\.\d+\.\d+$/)) {
+                        error("Tag invalide : ${env.TAG_NAME} (format attendu vX.Y.Z)")
+                    }
+                }
+                bat 'if not exist reports mkdir reports'
+                bat 'node -v && npm -v'
+                bat '"%DOCKER%" --version'
+                dir('backend') {
+                    bat 'npm install'
+                    bat 'node --check server.cjs'
+                }
+                dir('frontend') {
+                    bat 'npm install'
                 }
             }
+        }
+        stage('Build') {
+            steps {
+                dir('frontend') {
+                    bat 'npm run build'
+                }
+                bat '"%DOCKER%" build -t %BACKEND_IMAGE% ./backend'
+                bat '"%DOCKER%" build -t %FRONTEND_IMAGE% ./frontend'
+            }
+        }
+        stage('Run (Docker)') {
+            steps {
+                bat '"%COMPOSE%" -f docker-compose.ci.yml up -d'
+            }
+        }
+        stage('Smoke Test') {
+            steps {
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    bat 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\smoke.ps1 -Api http://localhost:%API_PORT% -Web http://localhost:%WEB_PORT% -Out reports\\smoke-release.txt'
+                }
+            }
+        }
+        stage('Push Docker Hub') {
+            when {
+                expression { currentBuild.currentResult == 'SUCCESS' }
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    bat 'echo %DOCKER_PASS%| "%DOCKER%" login -u %DOCKER_USER% --password-stdin'
+                    bat '"%DOCKER%" push %BACKEND_IMAGE%'
+                    bat '"%DOCKER%" push %FRONTEND_IMAGE%'
+                    bat '"%DOCKER%" logout'
+                }
+            }
+        }
+        stage('Archive Artifacts') {
+            steps {
+                bat '"%COMPOSE%" -f docker-compose.ci.yml logs --no-color > reports\\compose-logs.txt'
+                bat '"%DOCKER%" images --digests %HUB_USER%/bi-boutique-backend > reports\\images-backend.txt'
+                bat '"%DOCKER%" images --digests %HUB_USER%/bi-boutique-frontend > reports\\images-frontend.txt'
+                writeFile file: 'reports/pipeline-report.txt', text: "Pipeline : ${env.JOB_NAME}\nBuild : #${env.BUILD_NUMBER}\nBranche : ${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'n/a'}\nType : Build versionne ${env.IMAGE_TAG}\nStatut : ${currentBuild.currentResult}\nURL : ${env.BUILD_URL}\n"
+                archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
+            }
+        }
+        stage('Cleanup') {
+            steps {
+                bat '"%COMPOSE%" -f docker-compose.ci.yml down -v'
+            }
+        }
+    }
+    post {
+        failure {
+            bat returnStatus: true, script: '"%COMPOSE%" -f docker-compose.ci.yml down -v'
         }
     }
 }
